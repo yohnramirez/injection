@@ -165,7 +165,7 @@ app.get("/resultado-busqueda", async (req, res) => {
 app.get("/", (req, res) => {
   if (!isAuthenticated) {
     return res.send(
-      "Acceso denegado. Por favor, inicia sesión primero en /login. Los endpoints que no necesitan autenticación son /listar-usuarios, /buscar y /login"
+      "Acceso denegado. Por favor, inicia sesión primero en /login. Los endpoints que no necesitan autenticación son /listar-usuarios, /buscar, /login, /crear-cupon, /listar-cupones y /config."
     );
   }
 
