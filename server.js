@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const sql = require("mssql");
-require('dotenv').config()
+require("dotenv").config();
 
 let isAuthenticated = false;
 
@@ -36,9 +36,13 @@ app.get("/listar-usuarios", async (req, res) => {
 
     if (result.recordset.length > 0) {
       res.write("<h1>Lista de Usuarios</h1>");
-      res.write("<table border='1' style='margin: auto; width: 80%; text-align: left; border-collapse: collapse;'>");
-      res.write("<tr><th>ID</th><th>Nombre</th><th>Email</th><th>Dirección</th><th>Teléfono</th><th>Tarjeta de Crédito</th></tr>");
-      
+      res.write(
+        "<table border='1' style='margin: auto; width: 80%; text-align: left; border-collapse: collapse;'>"
+      );
+      res.write(
+        "<tr><th>ID</th><th>Nombre</th><th>Email</th><th>Dirección</th><th>Teléfono</th><th>Tarjeta de Crédito</th></tr>"
+      );
+
       result.recordset.forEach((row) => {
         res.write(`
           <tr>
@@ -350,6 +354,177 @@ app.post("/procesar-cupon", async (req, res) => {
     res.status(500).send("Error en el servidor");
   }
 });
+
+// Vista crear cupones
+// Mostrar el formulario de creación de cupones
+app.get("/crear-cupon", (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Crear Cupón</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f4f4f9;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+        }
+
+        .container {
+          background: white;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          width: 100%;
+          max-width: 400px;
+        }
+
+        h1 {
+          text-align: center;
+          color: #333;
+          font-size: 24px;
+        }
+
+        label {
+          font-weight: bold;
+          color: #555;
+          display: block;
+          margin-bottom: 5px;
+        }
+
+        input, textarea, button {
+          width: 100%;
+          padding: 10px;
+          margin-bottom: 15px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          font-size: 14px;
+        }
+
+        input:focus, textarea:focus {
+          outline: none;
+          border-color: #007BFF;
+          box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
+        }
+
+        button {
+          background-color: #007BFF;
+          color: white;
+          font-weight: bold;
+          cursor: pointer;
+          border: none;
+        }
+
+        button:hover {
+          background-color: #0056b3;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 10px;
+          font-size: 12px;
+          color: #aaa;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Crear Cupón</h1>
+        <form method="POST" action="/crear-cupon">
+          <label for="email">Email del usuario:</label>
+          <input type="email" id="email" name="email" placeholder="Ingresa el email" required>
+
+          <label for="codigo">Código del cupón:</label>
+          <input type="text" id="codigo" name="codigo" placeholder="Ejemplo: DESCUENTO10" required>
+
+          <label for="descripcion">Descripción:</label>
+          <textarea id="descripcion" name="descripcion" rows="4" placeholder="Describe el cupón aquí" required></textarea>
+
+          <label for="fecha_expiracion">Fecha de Expiración:</label>
+          <input type="date" id="fecha_expiracion" name="fecha_expiracion" required>
+
+          <button type="submit">Crear Cupón</button>
+        </form>
+        <div class="footer">
+          <p>Vulnerable site</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+// <script>alert('Cupón hackeado!')</script>
+// Endpoint crear cupones
+app.post("/crear-cupon", async (req, res) => {
+  const { email, codigo, descripcion, fecha_expiracion } = req.body;
+
+  const safeDescripcion = descripcion.replace(/'/g, "''");
+
+  // Validar si el email existe en la tabla usuarios
+  const checkUserQuery = `SELECT 1 FROM usuarios WHERE email = '${email}'`;
+
+  try {
+    const pool = await sql.connect(dbConfig);
+    const checkResult = await pool.request().query(checkUserQuery);
+
+    if (checkResult.recordset.length === 0) {
+      return res.status(400).send("<h1>Error: El email no está registrado.</h1>");
+    }
+
+    // Insertar el cupón si el usuario existe
+    const insertQuery = `
+      INSERT INTO cupones (email, codigo, descripcion, fecha_expiracion)
+      VALUES ('${email}', '${codigo}', '${safeDescripcion}', '${fecha_expiracion}')
+    `;
+    await pool.request().query(insertQuery);
+
+    res.send("<h1>Cupón creado exitosamente.</h1>");
+  } catch (err) {
+    console.error("Error al insertar el cupón:", err);
+    res.status(500).send("<h1>Error al crear el cupón.</h1>");
+  }
+});
+
+
+// Endpoint listar cupones
+app.get("/listar-cupones", async (req, res) => {
+  const query = `
+    SELECT c.codigo AS Cupon, c.descripcion AS Descripcion, c.fecha_expiracion AS Expiracion
+    FROM cupones c
+    JOIN usuarios u ON c.email = u.email
+  `;
+
+  try {
+    const pool = await sql.connect(dbConfig);
+    const result = await pool.request().query(query);
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.write("<h1>Lista de Cupones</h1>");
+    res.write("<table border='1' style='margin: auto; width: 80%; text-align: left; border-collapse: collapse;'>");
+    res.write("<tr><th>Cupón</th><th>Descripción</th><th>Fecha de Expiración</th></tr>");
+    result.recordset.forEach((row) => {
+      res.write(`<tr>
+                    <td>${row.Cupon}</td>
+                    <td>${row.Descripcion}</td>
+                    <td>${row.Expiracion}</td>
+                 </tr>`);
+    });
+    res.write("</table>");
+    res.end();
+  } catch (err) {
+    console.error("Error al listar los cupones:", err);
+    res.status(500).send("Error en el servidor.");
+  }
+});
+
 
 // Endpoint UPLOAD
 app.post("/upload", (req, res) => {
